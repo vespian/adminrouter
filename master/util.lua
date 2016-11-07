@@ -1,5 +1,5 @@
 local cjson_safe = require "cjson.safe"
-local statecache = require "master.mesosstatecache"
+local statecache = require "master.mesosstatecache.common"
 
 local util = {}
 

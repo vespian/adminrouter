@@ -59,4 +59,36 @@ function string:strip()
 end
 
 
+function request(url, headers)
+    -- Use cosocket-based HTTP library, as ngx subrequests are not available
+    -- from within this code path (decoupled from nginx' request processing).
+    -- The timeout parameter is given in milliseconds. The `request_uri`
+    -- method takes care of parsing scheme, host, and port from the URL.
+    local httpc = http.new()
+    httpc:set_timeout(10000)
+    local res, err = httpc:request_uri(url, {
+        method="GET",
+        headers=headers,
+        ssl_verify=true
+    })
+
+    if not res then
+        ngx.log(ngx.ERR, "Failed to request " .. url .. ": " .. err)
+        return nil, err
+    end
+
+    if res.status ~= 200 then
+        return nil, "Invalid response status: " .. res.status
+    end
+
+    ngx.log(
+        ngx.NOTICE,
+        "Request url: " .. url ..
+        " -- Response Body length: " .. string.len(res.body) .. " bytes."
+        )
+
+    return res, nil
+end
+
+
 return util

@@ -2,8 +2,7 @@ local cjson_safe = require "cjson.safe"
 local shmlock = require "resty.lock"
 local http = require "resty.http"
 
-
-local _M = {}
+local shim = require "common.shim"
 
 
 local POLL_PERIOD_SECONDS = 25
@@ -28,41 +27,10 @@ local function cache_data(key, value)
 end
 
 
-local function request(url)
-    -- Use cosocket-based HTTP library, as ngx subrequests are not available
-    -- from within this code path (decoupled from nginx' request processing).
-    -- The timeout parameter is given in milliseconds. The `request_uri`
-    -- method takes care of parsing scheme, host, and port from the URL.
-    local httpc = http.new()
-    httpc:set_timeout(10000)
-    local res, err = httpc:request_uri(url, {
-        method="GET",
-        ssl_verify=true
-    })
-
-    if not res then
-        ngx.log(ngx.ERR, "Failed to request " .. url .. ": " .. err)
-        return nil, err
-    end
-
-    if res.status ~= 200 then
-        return nil, "Invalid response status: " .. res.status
-    end
-
-    ngx.log(
-        ngx.NOTICE,
-        "Request url: " .. url ..
-        " -- Response Body length: " .. string.len(res.body) .. " bytes."
-        )
-
-    return res, nil
-end
-
-
 local function fetch_and_cache_state_marathon()
     -- Access Marathon through localhost.
     ngx.log(ngx.NOTICE, "Cache Marathon app state")
-    local appsRes, err = request(UPSTREAM_MARATHON .. "/v2/apps?embed=apps.tasks&label=DCOS_SERVICE_NAME")
+    local appsRes, err = shim.request(UPSTREAM_MARATHON .. "/v2/apps?embed=apps.tasks&label=DCOS_SERVICE_NAME")
 
     if err then
         ngx.log(ngx.NOTICE, "Marathon app request failed: " .. err)
@@ -170,7 +138,7 @@ end
 local function fetch_and_cache_state_mesos()
     -- Fetch state JSON summary from Mesos. If successful, store to SHM cache.
     -- Expected to run within lock context.
-    local mesosRes, err = request(UPSTREAM_MESOS .. "/master/state-summary")
+    local mesosRes, err = shim.request(UPSTREAM_MESOS .. "/master/state-summary")
 
     if err then
         ngx.log(ngx.NOTICE, "Mesos state request failed: " .. err)
@@ -270,7 +238,7 @@ local function refresh_mesos_state_cache(from_timer)
 end
 
 
-function _M.periodically_poll_mesos_state()
+local function periodically_poll_mesos_state()
     -- This function is invoked from within init_worker_by_lua code.
     -- ngx.timer.at() can be called here, whereas most of the other ngx.*
     -- API is not availabe.
@@ -329,8 +297,6 @@ local function get_svcapps(retry)
 end
 
 
--- Expose interface for requesting service summary JSON.
-_M.get_svcapps = get_svcapps
 
 
 local function get_state_summary(retry)
@@ -358,7 +324,10 @@ end
 
 
 -- Expose interface for requesting state summary JSON.
-_M.get_state_summary = get_state_summary
+local _M = {}
 
+_M.get_state_summary = get_state_summary
+_M.periodically_poll_mesos_state = periodically_poll_mesos_state
+_M.get_svcapps = get_svcapps
 
 return _M
