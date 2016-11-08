@@ -1,5 +1,7 @@
-local util = require "master.util"
+local util = require "lib.util"
 local url = require "master.url"
+local mesosstatecache = require "lib.mesosstatecache"
+
 
 function gen_serviceurl(service_name)
     local records = util.mesos_dns_get_srv(service_name)
@@ -9,8 +11,9 @@ function gen_serviceurl(service_name)
     return "http://" .. first_ip .. ":" .. first_port
 end
 
+
 -- Get (cached) Marathon app state.
-local svcapps = util.get_svcapps()
+local svcapps = mesosstatecache.get_svcapps()
 if svcapps then
     local svc = svcapps[ngx.var.serviceid]
     if svc then
@@ -20,8 +23,9 @@ if svcapps then
     end
 end
 
+
 -- Get (cached) Mesos state.
-local state = util.mesos_get_state()
+local state = mesosstatecache.mesos_get_state()
 for _, framework in ipairs(state["frameworks"]) do
   if framework["id"] == ngx.var.serviceid or framework['name'] == ngx.var.serviceid then
     local webui_url = framework["webui_url"]

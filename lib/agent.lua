@@ -1,7 +1,7 @@
-local util = require "master.util"
+local mesosstatecache = require "lib.mesosstatecache"
 
 local function set_agent_addr(default_scheme)
-    local state = util.mesos_get_state()
+    local state = mesosstatecache.mesos_get_state()
     if state == nil then
         ngx.status = ngx.HTTP_SERVICE_UNAVAILABLE
         ngx.say("503 Service Unavailable: invalid Mesos state.")

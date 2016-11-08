@@ -59,7 +59,7 @@ function string:strip()
 end
 
 
-function request(url, headers)
+function util.request(url, headers)
     -- Use cosocket-based HTTP library, as ngx subrequests are not available
     -- from within this code path (decoupled from nginx' request processing).
     -- The timeout parameter is given in milliseconds. The `request_uri`
@@ -88,6 +88,29 @@ function request(url, headers)
         )
 
     return res, nil
+end
+
+
+function util.mesos_dns_get_srv(framework_name)
+    local res = ngx.location.capture(
+        "/mesos_dns/v1/services/_" .. framework_name .. "._tcp.marathon.mesos")
+
+    if res.truncated then
+        -- Remote connection dropped prematurely or timed out.
+        ngx.log(ngx.ERR, "Request to Mesos DNS failed.")
+        return nil
+    end
+    if res.status ~= 200 then
+        ngx.log(ngx.ERR, "Mesos DNS response status: " .. res.status)
+        return nil
+    end
+
+    local records, err = cjson_safe.decode(res.body)
+    if not records then
+        ngx.log(ngx.ERR, "Cannot decode JSON: " .. err)
+        return nil
+    end
+    return records
 end
 
 
