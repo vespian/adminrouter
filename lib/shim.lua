@@ -1,64 +1,64 @@
 local util = require "common.util"
 local agent = require 'master.agent.common';
-local auth = require 'common.auth.ee';
 
 local shim = {}
+local auth = {}
+
+local use_auth = os.getenv("ADMINROUTER_ACTIVATE_AUTH_MODULE")
+if use_auth ~= "true" then
+    ngx.log(
+        ngx.NOTICE,
+        "ADMINROUTER_ACTIVATE_AUTH_MODULE not `true`. " ..
+        "Using dummy module."
+        )
+    auth.validate_jwt_or_exit = function() return end
+else
+    ngx.log(ngx.NOTICE, "Use auth module.")
+    auth = require "lib.auth.ee"
+end
 
 local function shim.request(url)
     return util.request(url, {});
 end
 
 local function shim.access_agent_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:ops:slave");
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.set_agent_addr()
-    return agent.set_agent_addr(DEFAULT_SCHEME);
+    return agent.set_agent_addr("http://");
 end
 
 local function shim.access_acsapi_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:acs");
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_lashupkey_endpoint()
-    -- Note(JP): this ACL is not actually checked.
-    -- Currently allowed for all authenticated users.
-    local object = "dcos:adminrouter:navstar-lashup-key"
-    local action = "full"
-    local uid = auth.validate_jwt_or_exit(object, action)
-    local auditlogparms = {
-        uid = uid,
-        object = object,
-        action = action,
-        result = "allow",
-        reason = "authenticated (all users are allowed to access)"
-        }
-    auth.auditlog(auditlogparms)
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_service_endpoint()
-    local resourceid = "dcos:adminrouter:service:" .. ngx.var.serviceid
-    return auth.check_acl_or_exit(resourceid);
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_metadata_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:ops:metadata");
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_historyservice_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:ops:historyservice");
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_mesosdns_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:ops:mesos-dns");
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_systemhealth_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:ops:system-health");
+    return auth.validate_jwt_or_exit()
 end
 
 local function shim.access_pkgpanda_endpoint()
-    return auth.check_acl_or_exit("dcos:adminrouter:ops:pkgpanda");
+    return auth.validate_jwt_or_exit()
 end
 
 return shim
