@@ -13,7 +13,7 @@ if use_auth ~= "true" then
     auth.validate_jwt_or_exit = function() return end
 else
     ngx.log(ngx.NOTICE, "Use auth module.");
-    auth = require "auth.ee";
+    auth = require "auth.open";
 end
 
 function shim.request(url)
