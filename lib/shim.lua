@@ -25,10 +25,6 @@ function shim.access_agent_endpoint()
     return auth.validate_jwt_or_exit()
 end
 
-function shim.set_agent_addr()
-    return agent.set_agent_addr("http://");
-end
-
 function shim.access_acsapi_endpoint()
     return auth.validate_jwt_or_exit()
 end

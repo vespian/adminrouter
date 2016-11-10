@@ -1,6 +1,5 @@
 local cjson_safe = require "cjson.safe"
 local shmlock = require "resty.lock"
-local http = require "resty.http"
 
 local shim = require "shim"
 
