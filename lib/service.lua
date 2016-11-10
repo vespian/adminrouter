@@ -1,5 +1,5 @@
 local util = require "util"
-local url = require "master.url"
+local url = require "url"
 local mesosstatecache = require "mesosstatecache"
 
 
