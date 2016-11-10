@@ -1,5 +1,5 @@
 local cjson_safe = require "cjson.safe"
-
+local http = require "resty.http"
 
 local util = {}
 
