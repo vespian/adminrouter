@@ -1,5 +1,5 @@
-local util = require "common.util"
-local authcommon = require "common.auth.common"
+local util = require "util"
+local authcommon = require "auth.common"
 
 local SECRET_KEY = nil
 
