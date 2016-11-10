@@ -1,5 +1,4 @@
 local util = require "util";
-local agent = require "agent";
 
 local shim = {}
 local auth = {}
