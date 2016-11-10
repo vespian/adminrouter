@@ -1,5 +1,5 @@
-local util = require "common.util";
-local agent = require 'master.agent.common';
+local util = require "lib.util";
+local agent = require 'lib.agent.common';
 
 local shim = {}
 local auth = {}
