@@ -1,8 +1,8 @@
 local cjson_safe = require "cjson.safe"
-local shmlock = require "lib.resty.lock"
-local http = require "lib.resty.http"
+local shmlock = require "resty.lock"
+local http = require "resty.http"
 
-local shim = require "lib.shim"
+local shim = require "shim"
 
 
 local POLL_PERIOD_SECONDS = 25

@@ -1,4 +1,4 @@
-local mesosstatecache = require "lib.mesosstatecache"
+local mesosstatecache = require "mesosstatecache"
 
 local function set_agent_addr(default_scheme)
     local state = mesosstatecache.mesos_get_state()

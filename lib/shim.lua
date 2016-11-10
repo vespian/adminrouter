@@ -1,5 +1,5 @@
-local util = require "lib.util";
-local agent = require 'lib.agent';
+local util = require "util";
+local agent = require "agent";
 
 local shim = {}
 local auth = {}
@@ -14,7 +14,7 @@ if use_auth ~= "true" then
     auth.validate_jwt_or_exit = function() return end
 else
     ngx.log(ngx.NOTICE, "Use auth module.");
-    auth = require "lib.auth.ee";
+    auth = require "auth.ee";
 end
 
 function shim.request(url)

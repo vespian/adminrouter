@@ -1,6 +1,6 @@
-local util = require "lib.util"
+local util = require "util"
 local url = require "master.url"
-local mesosstatecache = require "lib.mesosstatecache"
+local mesosstatecache = require "mesosstatecache"
 
 
 function gen_serviceurl(service_name)
