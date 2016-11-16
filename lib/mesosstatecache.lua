@@ -1,7 +1,7 @@
 local cjson_safe = require "cjson.safe"
 local shmlock = require "resty.lock"
 
-local shim = require "shim"
+local util = require "util"
 
 
 local POLL_PERIOD_SECONDS = 25
@@ -26,10 +26,12 @@ local function cache_data(key, value)
 end
 
 
-local function fetch_and_cache_state_marathon()
+local function fetch_and_cache_state_marathon(auth_token)
     -- Access Marathon through localhost.
     ngx.log(ngx.NOTICE, "Cache Marathon app state")
-    local appsRes, err = shim.request(UPSTREAM_MARATHON .. "/v2/apps?embed=apps.tasks&label=DCOS_SERVICE_NAME")
+    local appsRes, err = util.request(
+        UPSTREAM_MARATHON .. "/v2/apps?embed=apps.tasks&label=DCOS_SERVICE_NAME",
+        auth_token)
 
     if err then
         ngx.log(ngx.NOTICE, "Marathon app request failed: " .. err)
@@ -134,10 +136,11 @@ local function fetch_and_cache_state_marathon()
 end
 
 
-local function fetch_and_cache_state_mesos()
+local function fetch_and_cache_state_mesos(auth_token)
     -- Fetch state JSON summary from Mesos. If successful, store to SHM cache.
     -- Expected to run within lock context.
-    local mesosRes, err = shim.request(UPSTREAM_MESOS .. "/master/state-summary")
+    local mesosRes, err = util.request(UPSTREAM_MESOS .. "/master/state-summary",
+                                       auth_token)
 
     if err then
         ngx.log(ngx.NOTICE, "Mesos state request failed: " .. err)
@@ -156,11 +159,11 @@ local function fetch_and_cache_state_mesos()
     -- Piggy-back this and attempt to update the Marathon service
     -- cache, too. TODO(jp): decouple these entirely, so that the
     -- Marathon app cache can get its own timing/execution logic.
-    fetch_and_cache_state_marathon()
+    fetch_and_cache_state_marathon(auth_token)
 end
 
 
-local function refresh_mesos_state_cache(from_timer)
+local function refresh_mesos_state_cache(auth_token, from_timer)
     -- Refresh state cache if not yet existing or if expired.
     -- Use SHM-based lock for synchronizing coroutines
     -- across worker processes.
@@ -213,13 +216,13 @@ local function refresh_mesos_state_cache(from_timer)
     local fetchtime = cache:get("last_fetch_time_mesos")
     if not fetchtime then
         ngx.log(ngx.NOTICE, "Cache empty. Fetch.")
-        fetch_and_cache_state_mesos()
+        fetch_and_cache_state_mesos(auth_token)
     else
         ngx.update_time()
         local diff = ngx.now() - fetchtime
         if diff > CACHE_EXPIRATION_SECONDS then
             ngx.log(ngx.NOTICE, "Mesos state cache expired. Refresh.")
-            fetch_and_cache_state_mesos()
+            fetch_and_cache_state_mesos(auth_token)
         else
             ngx.log(ngx.DEBUG, "Cache populated and not expired. Noop.")
         end
@@ -237,7 +240,7 @@ local function refresh_mesos_state_cache(from_timer)
 end
 
 
-local function periodically_poll_mesos_state()
+local function periodically_poll_mesos_state(auth_token)
     -- This function is invoked from within init_worker_by_lua code.
     -- ngx.timer.at() can be called here, whereas most of the other ngx.*
     -- API is not availabe.
@@ -255,7 +258,7 @@ local function periodically_poll_mesos_state()
         end
 
         -- Invoke timer business logic.
-        refresh_mesos_state_cache(true)
+        refresh_mesos_state_cache(auth_token, true)
 
         -- Register new timer.
         local ok, err = ngx.timer.at(POLL_PERIOD_SECONDS, timerhandler)
@@ -274,7 +277,7 @@ local function periodically_poll_mesos_state()
 end
 
 
-local function get_svcapps_json(retry)
+local function get_svcapps_json(auth_token, retry)
    local cache = ngx.shared.mesos_state_cache
    local svcappsjson = cache:get("svcapps")
    if not svcappsjson then
@@ -289,17 +292,17 @@ local function get_svcapps_json(retry)
             ngx.NOTICE,
             "Service state not available in cache yet. Fetch it."
         )
-        refresh_mesos_state_cache()
-        return get_svcapps(true)
+        refresh_mesos_state_cache(auth_token)
+        return get_svcapps(auth_token)
     end
     return svcappsjson
 end
 
 
-local function get_svcapps()
+local function get_svcapps(auth_token)
     -- Read Mesos state JSON from SHM cache.
     -- Return decoded JSON or nil upon error.
-    local appsjson = get_svcapps_json()
+    local appsjson = get_svcapps_json(auth_token, false)
     local apps, err = cjson_safe.decode(appsjson)
     if not apps then
         ngx.log(ngx.ERR, "Cannot decode JSON: " .. err)
@@ -309,7 +312,7 @@ local function get_svcapps()
 end
 
 
-local function get_state_summary(retry)
+local function get_state_summary(auth_token, retry)
     -- Fetch state summary JSON from cache and handle
     -- special case of cache not yet existing.
     local cache = ngx.shared.mesos_state_cache
@@ -326,17 +329,17 @@ local function get_state_summary(retry)
             ngx.NOTICE,
             "Mesos state not available in cache yet. Fetch it."
         )
-        refresh_mesos_state_cache()
-        return get_state_summary(true)
+        refresh_mesos_state_cache(auth_token, false)
+        return get_state_summary(auth_token, true)
     end
     return statejson
 end
 
 
-local function mesos_get_state()
+local function mesos_get_state(auth_token)
     -- Read Mesos state JSON from SHM cache.
     -- Return decoded JSON or nil upon error.
-    local statejson = get_state_summary()
+    local statejson = get_state_summary(auth_token, false)
     local state, err = cjson_safe.decode(statejson)
     if not state then
         ngx.log(ngx.ERR, "Cannot decode JSON: " .. err)
@@ -348,10 +351,37 @@ end
 
 -- Expose interface for requesting state summary JSON.
 local _M = {}
+function _M.init(auth_token)
+    -- At some point auth_token passing will be refactored refactored out in
+    -- favour of service accounts support. For now let's just make it easy to
+    -- use.
+    local res = {}
 
-_M.get_state_summary = get_state_summary
-_M.periodically_poll_mesos_state = periodically_poll_mesos_state
-_M.get_svcapps = get_svcapps
-_M.mesos_get_state = mesos_get_state
+    if auth_token ~= nil then
+        res.get_state_summary = get_state_summary
+        res.periodically_poll_mesos_state = periodically_poll_mesos_state
+        res.get_svcapps = get_svcapps
+        res.mesos_get_state = mesos_get_state
+    else
+        -- auth_token variable is need by a few inner functions which are
+        -- nested inside top-level ones. We can either define all the functions
+        -- inside the same lexical block, or we pass it around. Passing it
+        -- around seems cleaner.
+        res.get_state_summary = function ()
+            return get_state_summary(auth_token, false)
+        end
+        res.periodically_poll_mesos_state = function()
+            return periodically_poll_mesos_state(auth_token)
+        end
+        res.get_svcapps = function()
+            return get_svcapps(auth_token)
+        end
+        res.mesos_get_state = function()
+            return mesos_get_state(auth_token)
+        end
+    end
+
+    return res
+end
 
 return _M

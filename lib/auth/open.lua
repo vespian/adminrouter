@@ -31,10 +31,60 @@ local function validate_jwt_or_exit()
     return uid
 end
 
-
--- Expose interface.
+-- Initialise and return the module:
 local _M = {}
-_M.validate_jwt_or_exit = validate_jwt_or_exit
+function _M.init(use_auth)
+    local res = {}
 
+    if use_auth ~= "true" then
+        ngx.log(
+            ngx.NOTICE,
+            "ADMINROUTER_ACTIVATE_AUTH_MODULE not `true`. " ..
+            "Using dummy module."
+            )
+        res.validate_jwt_or_exit = function() return end
+    else
+        ngx.log(ngx.NOTICE, "Use auth module.");
+        res.validate_jwt_or_exit = validate_jwt_or_exit
+    end
+
+    res.access_agent_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_acsapi_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_lashupkey_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_service_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_metadata_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_historyservice_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_mesosdns_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_systemhealth_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    res.access_pkgpanda_endpoint = function()
+        return res.validate_jwt_or_exit()
+    end
+
+    return res
+end
 
 return _M

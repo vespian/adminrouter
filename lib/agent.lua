@@ -1,5 +1,3 @@
-local mesosstatecache = require "mesosstatecache"
-
 local state = mesosstatecache.mesos_get_state()
 if state == nil then
 	ngx.status = ngx.HTTP_SERVICE_UNAVAILABLE

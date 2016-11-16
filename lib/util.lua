@@ -59,11 +59,16 @@ function string:strip()
 end
 
 
-function util.request(url, headers)
+function util.request(url, auth_token)
     -- Use cosocket-based HTTP library, as ngx subrequests are not available
     -- from within this code path (decoupled from nginx' request processing).
     -- The timeout parameter is given in milliseconds. The `request_uri`
     -- method takes care of parsing scheme, host, and port from the URL.
+    local headers = {}
+    if auth_token ~= nil then
+        headers = {["Authorization"] = "token=" .. auth_token}
+	end
+
     local httpc = http.new()
     httpc:set_timeout(10000)
     local res, err = httpc:request_uri(url, {
