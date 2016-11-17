@@ -339,18 +339,13 @@ end
 -- Expose interface for requesting state summary JSON.
 local _M = {}
 function _M.init(auth_token)
-    -- At some point auth_token passing will be refactored refactored out in
+    -- At some point auth_token passing will be refactored out in
     -- favour of service accounts support. For now let's just make it easy to
     -- use.
     local res = {}
 
     if auth_token ~= nil then
-        res.get_state_summary = get_state_summary
-        res.periodically_poll_mesos_state = periodically_poll_mesos_state
-        res.get_svcapps = get_svcapps
-        res.mesos_get_state = mesos_get_state
-    else
-        -- auth_token variable is need by a few inner functions which are
+        -- auth_token variable is needed by a few inner functions which are
         -- nested inside top-level ones. We can either define all the functions
         -- inside the same lexical block, or we pass it around. Passing it
         -- around seems cleaner.
@@ -366,6 +361,11 @@ function _M.init(auth_token)
         res.mesos_get_state = function()
             return mesos_get_state(auth_token)
         end
+    else
+        res.get_state_summary = get_state_summary
+        res.periodically_poll_mesos_state = periodically_poll_mesos_state
+        res.get_svcapps = get_svcapps
+        res.mesos_get_state = mesos_get_state
     end
 
     return res
