@@ -12,7 +12,7 @@ end
 
 
 -- Get (cached) Marathon app state.
-local svcapps = mesosstatecache.get_svcapps()
+local svcapps = util.get_svcapps()
 if svcapps then
     local svc = svcapps[ngx.var.serviceid]
     if svc then

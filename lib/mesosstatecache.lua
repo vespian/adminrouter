@@ -277,7 +277,7 @@ local function periodically_poll_mesos_state(auth_token)
 end
 
 
-local function get_svcapps_json(auth_token, retry)
+local function get_svcapps(auth_token, retry)
    local cache = ngx.shared.mesos_state_cache
    local svcappsjson = cache:get("svcapps")
    if not svcappsjson then
@@ -293,22 +293,9 @@ local function get_svcapps_json(auth_token, retry)
             "Service state not available in cache yet. Fetch it."
         )
         refresh_mesos_state_cache(auth_token)
-        return get_svcapps(auth_token)
+        return get_svcapps(auth_token, true)
     end
     return svcappsjson
-end
-
-
-local function get_svcapps(auth_token)
-    -- Read Mesos state JSON from SHM cache.
-    -- Return decoded JSON or nil upon error.
-    local appsjson = get_svcapps_json(auth_token, false)
-    local apps, err = cjson_safe.decode(appsjson)
-    if not apps then
-        ngx.log(ngx.ERR, "Cannot decode JSON: " .. err)
-        return nil
-    end
-    return apps
 end
 
 
